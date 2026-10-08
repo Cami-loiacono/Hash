@@ -28,7 +28,6 @@ type diccionarioHash[K comparable, V any] struct {
    tabla    []TDALista.Lista[parClaveValor[K,V]]
    tam      int
    cantidad int
-   iterador *iteradorHash[K,V]
 }
 
 
@@ -37,8 +36,8 @@ func convertirABytes[K comparable](clave K) []byte {
 	return []byte(fmt.Sprintf("%v", clave))
 }
 
-func (d *diccionarioHash[K,V]) obtenerIndice (clave K) int {
-	h := fnv.New32a()
+func (d *diccionarioHash[K,V]) obtenerIndice(clave K) int {
+	h := Hash.New32a()
 	h.Write(convertirABytes(clave))
 	return int(h.Sum32() % uint32(len(d.tabla)))
 }
@@ -57,8 +56,6 @@ func CrearHash[K comparable, V any]() Diccionario[K, V] {
 	dic.tam = _CAPACIDAD_INICIAL
 	return dic
 }
-
-
 
 // ITERADOR EXTERNO --------------------
 
@@ -90,9 +87,6 @@ func (iter *iteradorHash[K, V]) Avanzar()  {
 	}
 }
 
-
-
-
 // HASH -----------------------------
 
 func (d *diccionarioHash[K, V]) buscarClave(clave K) (TDALista.IteradorLista[parClaveValor[K, V]], bool) {
@@ -122,24 +116,55 @@ func (d *diccionarioHash[K, V]) Guardar(clave K, dato V) {
 		iter.Insertar(par)
 		return
 	}
-	if float64(d.cantidad)/float64(d.tam) >= _FACTOR_CARGA_MAX {
-		d.redimensionar(d.tam * 2)
-	}
 	d.tabla[d.obtenerIndice(clave)].InsertarUltimo(par)
 	d.cantidad++
+	if d.cantidad/d.tam >= _FACTOR_CARGA_MAX {
+		d.redimensionar(d.tam * 2)
+	}
+}
+
+func (d *diccionarioHash[K,V]) Iterador() IterDiccionario[K, V] {
+	iter := new(iteradorHash[K, V])
+	iter.dic = d
+	iter.posTabla = 0
+	iter.iterLista = d.tabla[iter.posTabla].Iterador()
+	return iter
 }
 
 func (d *diccionarioHash[K,V]) Obtener(clave K) V {
+	if iter, encontrada := d.buscarClave(clave); encontrada {
+		dato := iter.VerActual().dato
+		iter.Borrar()
+		return dato
+	}
+	panic(_PANIC_CLAVE_NO_PERTENECE)
+}
 
 func (d *diccionarioHash[K,V]) Borrar(clave K) V {
+	if iter, encontrada := d.buscarClave(clave); encontrada {
+		d.cantidad--
+		return iter.VerActual().dato
+	}
+	panic(_PANIC_CLAVE_NO_PERTENECE)
+}
 
 func (d *diccionarioHash[K,V]) Iterar( f func(clave K, dato V) bool) {
-
-func (d *diccionarioHash[K,V]) Iterador() IterDiccionario[K, V] {
+	continuar := true
+	for i:= 0; i < d.tam && continuar; i++ {
+		d.tabla[i].Iterar(func(par parClaveValor[K, V]) bool {
+			if !f(par.clave, par.dato) {
+				continuar = false
+				return false
+			}
+			return true
+		})
+	}
+}
 
 func (d *diccionarioHash[K,V]) redimensionar(nuevoTam int) {
 
+}
+
 func (d *diccionarioHash[K,V]) rehash() {
 
-
-
+}
